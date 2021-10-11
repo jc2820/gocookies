@@ -6,33 +6,75 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
+
+	"github.com/golang-jwt/jwt"
 )
 
 var templates *template.Template
+
+type Claims struct {
+	Username string
+	jwt.StandardClaims
+}
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 	templates.ExecuteTemplate(w, "index.gohtml", nil)
 }
 
 func privateHandler(w http.ResponseWriter, r *http.Request) {
-	_, err := r.Cookie("user")
+	c, err := r.Cookie("token")
+
+	tokenString := c.Value
+	fmt.Println(tokenString)
+
+	claims := &Claims{}
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		return []byte("AllYourBase"), nil
+	})
 	if err != nil {
-		templates.ExecuteTemplate(w, "401.gohtml", nil)
-	} else {
-		templates.ExecuteTemplate(w, "private.gohtml", nil)
+		if err == jwt.ErrSignatureInvalid {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
+	if !token.Valid {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	fmt.Println(token)
+	templates.ExecuteTemplate(w, "private.gohtml", nil)
+
 }
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
+
 		if r.FormValue("password") == os.Getenv("PASSWORD") {
 			fmt.Println("Logging in:", r.FormValue("username"))
+
+			tokenExpires := time.Now().Add(15 * time.Minute)
+			claims := &Claims{
+				Username: r.FormValue("username"),
+				StandardClaims: jwt.StandardClaims{
+					ExpiresAt: tokenExpires.Unix(),
+				},
+			}
+			token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+			tokenString, err := token.SignedString(os.Getenv("JWTKEY"))
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
 			http.SetCookie(w, &http.Cookie{
-				Name:     "user",
-				Value:    r.FormValue("username"),
+				Name:     "token",
+				Value:    tokenString,
 				Secure:   true,
 				HttpOnly: true,
-				MaxAge:   100,
+				Expires:  tokenExpires,
 				Path:     "/",
 			})
 			http.Redirect(w, r, "/private", http.StatusSeeOther)
@@ -40,7 +82,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 			templates.ExecuteTemplate(w, "401.gohtml", nil)
 		}
 	} else {
-		_, err := r.Cookie("user")
+		_, err := r.Cookie("token")
 		if err != nil {
 			templates.ExecuteTemplate(w, "login.gohtml", nil)
 		} else {
@@ -51,12 +93,13 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 
 func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     "user",
+		Name:     "token",
 		Secure:   true,
 		HttpOnly: true,
 		MaxAge:   -1,
 		Path:     "/",
 	})
+	fmt.Println("Logging out:", r.FormValue("username"))
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
@@ -67,6 +110,7 @@ func main() {
 	}
 
 	os.Setenv("PASSWORD", "secret")
+	os.Setenv("JWTKEY", "chillidogs")
 
 	fs := http.FileServer(http.Dir("static"))
 	templates = template.Must(template.ParseGlob("templates/*.gohtml"))
