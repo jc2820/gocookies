@@ -40,8 +40,24 @@ func login(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, http.StatusText(401), http.StatusUnauthorized)
 		}
 	} else {
-		templates.ExecuteTemplate(w, "login.gohtml", nil)
+		_, err := r.Cookie("user")
+		if err != nil {
+			templates.ExecuteTemplate(w, "login.gohtml", nil)
+		} else {
+			http.Redirect(w, r, "/private", http.StatusSeeOther)
+		}
 	}
+}
+
+func logout(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "user",
+		Secure:   true,
+		HttpOnly: true,
+		MaxAge:   -1,
+		Path:     "/",
+	})
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 func main() {
@@ -60,6 +76,7 @@ func main() {
 	mux.HandleFunc("/", indexHandler)
 	mux.HandleFunc("/private", privateHandler)
 	mux.HandleFunc("/login", login)
+	mux.HandleFunc("/logout", logout)
 
 	fmt.Printf("Listening on %v\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, mux))
