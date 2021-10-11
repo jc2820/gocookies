@@ -45,9 +45,7 @@ func privateHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
-	fmt.Println(claims.Username)
 	templates.ExecuteTemplate(w, "private.gohtml", claims.Username)
-
 }
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
@@ -80,7 +78,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 			})
 			http.Redirect(w, r, "/private", http.StatusSeeOther)
 		} else {
-			templates.ExecuteTemplate(w, "401.gohtml", nil)
+			w.WriteHeader(http.StatusUnauthorized)
 		}
 	} else {
 		_, err := r.Cookie("token")
