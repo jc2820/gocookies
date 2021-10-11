@@ -24,13 +24,14 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 
 func privateHandler(w http.ResponseWriter, r *http.Request) {
 	c, err := r.Cookie("token")
-
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
 	tokenString := c.Value
-	fmt.Println(tokenString)
-
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-		return []byte("AllYourBase"), nil
+		return []byte(os.Getenv("JWTKEY")), nil
 	})
 	if err != nil {
 		if err == jwt.ErrSignatureInvalid {
@@ -44,8 +45,8 @@ func privateHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
-	fmt.Println(token)
-	templates.ExecuteTemplate(w, "private.gohtml", nil)
+	fmt.Println(claims.Username)
+	templates.ExecuteTemplate(w, "private.gohtml", claims.Username)
 
 }
 
@@ -63,7 +64,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 				},
 			}
 			token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-			tokenString, err := token.SignedString(os.Getenv("JWTKEY"))
+			tokenString, err := token.SignedString([]byte(os.Getenv("JWTKEY")))
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				return
