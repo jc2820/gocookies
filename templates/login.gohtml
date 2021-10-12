@@ -3,6 +3,30 @@
 <html lang="en">
 <head>
   <title>Log in</title>
+    <style>
+    body {
+    width: 100vw;
+    height: 100vh;
+    background-color: #001c4a;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    }
+    h1, p, a, label {
+    font-family: sans-serif;
+    color: white;
+    margin-top: 5px;
+    }
+    input, button {
+    color: white;
+    border: 2px solid white;
+    border-radius: 5px;
+    padding: 5px;
+    background: transparent;
+    margin: 5px 0 16px 0;
+    }
+  </style>
 </head>
 
 <body>
@@ -12,7 +36,7 @@
   <p>Enter your name and the correct password to enter the privvy.</p>
 
 
-  <p>p.s. the password is secret</p>
+  <p>p.s. the password is secret...</p>
 
 
   <form action="/login" method="post">
